@@ -4,18 +4,39 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate --schema=prisma/schema.prisma && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postbuild": "next-sitemap",
+    "create-admin": "tsx scripts/create-admin.ts"
   },
+
   "dependencies": {
+    "@auth/prisma-adapter": "2.10.0",
+    "@prisma/client": "6.19.0",
+    "bcryptjs": "^3.0.3",
+    "cheerio": "^1.2.0",
+    "dom-to-image-more": "^3.10.2",
+    "framer-motion": "^12.43.0",
+    "google-news-json": "^2.1.0",
+    "jsdom": "^29.1.1",
+    "lucide-react": "^1.28.0",
     "next": "16.2.12",
+    "next-auth": "^5.0.0-beta.32",
+    "next-sitemap": "^4.2.3",
+    "node-fetch": "^3.3.2",
+    "openai": "^7.3.0",
+    "playwright": "^1.62.1",
+    "prisma": "^6.19.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^20.19.43",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

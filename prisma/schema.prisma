@@ -1,0 +1,2484 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== Enums ====================
+
+
+enum Accent {
+  American
+  British
+  Australian
+  Canadian
+  Irish
+  Scottish
+  NewZealand
+  SouthAfrican
+  Other
+}
+
+enum ContentType {
+  Animation
+  Movie
+  Series
+}
+
+enum Difficulty {
+  One   @map("1")
+  Two   @map("2")
+  Three @map("3")
+  Four  @map("4")
+  Five  @map("5")
+  Six   @map("6")
+  Seven @map("7")
+  Eight @map("8")
+  Nine  @map("9")
+  Ten   @map("10")
+}
+
+enum CEFRLevel {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+enum ReviewTimePreference {
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+}
+
+enum PaymentGatewayType {
+  ZARINPAL
+  AGAYPARDAKHT
+}
+
+enum TransactionStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
+enum Role {
+  user
+  admin
+}
+
+// ==================== New AI Speaking Enums ====================
+
+enum SpeakingMode {
+  FREE
+  TOPIC
+  SCENARIO
+}
+
+enum SpeakingSessionStatus {
+  CREATED
+  RECORDING
+  PAUSED
+  FINISHING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  PARTIAL_COMPLETED
+  FAILED_ANALYSIS
+}
+
+enum FeedbackLanguage {
+  TARGET_ONLY
+  MIXED
+}
+
+enum EvaluationStrictness {
+  NORMAL
+  STRICT
+  EXAM
+}
+
+enum AIProviderType {
+  GAPGPT
+  OPENAI
+  DEEPSEEK
+  GEMINI
+  CUSTOM
+}
+
+enum AITaskType {
+  TEXT_GENERATION
+  SPEECH_TO_TEXT
+  TEXT_TO_SPEECH
+  EVALUATION
+  TRANSCRIPT_CLEANING
+  SUBTITLE_TRANSLATION
+}
+
+enum AIConfigStatus {
+  ACTIVE
+  INACTIVE
+  RATE_LIMITED
+  ERROR
+}
+
+enum ErrorSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CorrectionErrorType {
+  GRAMMAR
+  VOCABULARY
+  COLLOCATION
+  WORD_ORDER
+  TENSE
+  ARTICLE
+  PREPOSITION
+  PRONUNCIATION_OR_CLARITY
+  COHERENCE
+  RELEVANCE
+  REPETITION
+  UNNATURAL_EXPRESSION
+  OTHER
+}
+
+enum UserSpeakingLevel {
+  BEGINNER
+  PRE_INTERMEDIATE
+  INTERMEDIATE
+  UPPER_INTERMEDIATE
+  ADVANCED
+}
+
+enum SpeakingGoal {
+  GENERAL_SPEAKING
+  IELTS_SPEAKING
+  TRAVEL
+  JOB_INTERVIEW
+  BUSINESS_ENGLISH
+  IMMIGRATION
+  ACADEMIC_DISCUSSION
+  DAILY_CONVERSATION
+  PRESENTATION_PRACTICE
+}
+
+// ==================== NextAuth Models ====================
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.String
+  access_token      String? @db.String
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.String
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==================== User Model ====================
+
+model User {
+  id                       String                @id @default(auto()) @map("_id") @db.ObjectId
+  name                     String?
+  family                   String?
+  phone                    String?               @unique
+  password                 String?
+  email                    String?               @unique
+  emailVerified            DateTime?
+  image                    String?
+  role                     Role                  @default(user)
+  referralCode             String?               @unique
+  referredById             String?               @db.ObjectId
+  directReferralsCount     Int                   @default(0)
+  hasPurchasedPackage      Boolean               @default(false)
+  packageMonths            Int?
+  packageExpiryDate        DateTime?
+  notificationEnabled      Boolean               @default(true)
+  notificationToken        String?
+  lastNotificationAt       DateTime?
+  lastReviewNotificationAt DateTime?
+  isOnboardingComplete     Boolean               @default(false)
+  learningGoal             String?
+  targetScore              Float?
+  suggestedReviewTime      ReviewTimePreference?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+subtitleTranslationSessions SubtitleTranslationSession[]
+    podcastTranslationSessions  PodcastTranslationSession[]
+  weeklyPlans         WeeklyPlan[]
+  calendarDays        CalendarDay[]
+ speakingUsage      UserSpeakingUsage?
+ aiQuestionUsage  AIQuestionUsage?
+  currentLevel      String?   // 'absolute_beginner' | 'beginner' | ...
+  mainChallenge     String[]  // ['forgetting_words', 'speaking_fluency', ...]
+  preferredMethod   String[]  // ['flashcards', 'ai_speaking', ...]
+  speakingLevel     UserSpeakingLevel?  // رابطه با enum موجود
+  xp            Int        @default(0)
+  // ===== Ticket & Earnings =====
+  tickets             Ticket[]
+  assignedTickets     Ticket[]          @relation("AssignedTickets")
+  earnings            UserEarning?
+  referralsMade       ReferralDetail[]  @relation("ReferrerRefs")
+  referredBy          ReferralDetail[]  @relation("ReferredRefs")
+  ticketReplies       TicketReply[]
+  writingUsage      UserWritingUsage?
+  writingOnboarding WritingOnboarding?
+  writingSessions   WritingSession[]
+  writingProgress   WritingProgress?
+  createdWritingTopics WritingTopic[]  @relation("WritingTopicCreator")
+  writingCorrections  WritingCorrection[]
+  writingSavedWords   WritingSavedWord[]
+  exploreReels      ExploreReel[]
+  exploreLikes      ExploreLike[]
+  exploreComments   ExploreComment[]
+  exploreSaves      ExploreSave[]
+  exploreViews      ExploreView[]
+  // ===== Auth =====
+  accounts            Account[]
+  sessions            Session[]
+plannerOnboardingSkipped   Boolean               @default(false)
+  // ===== Payment =====
+  transactions        Transaction[]
+
+  discountUsages      DiscountUsage[]
+  announcements       Announcement[]     @relation("CreatedAnnouncements")
+seoArticles     SeoArticle[]
+  cronJobLogs     CronJobLog[]
+  // ===== Notifications =====
+  notificationLogs    NotificationLog[]
+  pushSubscriptions   PushSubscription[]
+
+  // ===== Flashcard =====
+  cards               Card[]
+  reviews             Review[]
+
+  // ===== Content =====
+  notes               Note[]
+  mediaFiles          MediaFile[]
+  pdfs                PDF[]
+  articles            Article[]
+  songs               Song[]
+
+  // ===== Activity =====
+  activityTrackings   ActivityTracking[]
+  dailyActivities     DailyActivity[]
+
+  // ===== Progress =====
+  userMovieProgress     UserMovieProgress[]
+  userEpisodeProgress   UserEpisodeProgress[]
+  podcastProgress       PodcastProgress[]
+
+  // ===== Old Word System =====
+  wordLevelProgress     UserLevelProgress[]
+  wordChapterProgress   UserChapterProgress[]
+  wordPartProgress      UserPartProgress[]
+  wordProgress          UserWordProgress[]
+
+  // ===== New Book System =====
+  userBookProgress        UserBookProgress[]
+  userBookLessonProgress  UserBookLessonProgress[]
+  userBookPartProgress    UserBookPartProgress[]
+  userBookWordProgress    UserBookWordProgress[]
+
+  // ===== AI Speaking =====
+  speakingOnboarding      AISpeakingOnboarding?
+  speakingSessions        AISpeakingSession[]
+  speakingProgress        AISpeakingProgress?
+
+   // Relation های جدید برای مدل‌های AI Speaking
+  createdTopics           SpeakingTopic[]       @relation("TopicCreator")
+  createdScenarios        SpeakingScenario[]    @relation("ScenarioCreator")
+  speakingCorrections     AISpeakingCorrection[]
+  savedWords              SpeakingSavedWord[]
+
+
+}
+
+// ==================== OTP & Phone Verification ====================
+
+model OTP {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  phone     String
+  code      String
+  type      String
+  used      Boolean  @default(false)
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone, type])
+  @@index([phone, expiresAt])
+  @@index([phone, type, used, expiresAt])
+}
+
+model PhoneVerification {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  phone      String    @unique
+  verified   Boolean   @default(false)
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([verified])
+}
+
+// ==================== Language Model ====================
+
+model Language {
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId
+  code   String  @unique
+  name   String
+  native String?
+  flag   String?
+  movies Movie[]
+ exploreReels ExploreReel[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==================== Movie/Video Models ====================
+
+model Movie {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  slug            String       @unique
+  accent          Accent
+  article         String?      @db.String
+  description     String?      @db.String
+  difficulty      Difficulty   @default(Three)
+  image           String?
+  bannerImage     String?
+  contentType     ContentType
+  contentOwner    String?
+  duration        Int?
+  cefrLevel       CEFRLevel?
+  previewMovie    String?
+  metaTitle       String?
+  metaDescription String?
+  faq             Json?        @db.Json
+  languageId      String       @db.ObjectId
+  language        Language     @relation(fields: [languageId], references: [id])
+  episodes        Episode[]
+  userProgress    UserMovieProgress[]
+  dailyActivities DailyActivity[]
+  cards           Card[]
+  isPublished     Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  wordOccurrences WordOccurrence[]
+
+  @@index([languageId])
+  @@index([contentType])
+  @@index([cefrLevel])
+  @@index([difficulty])
+  @@index([isPublished])
+}
+
+model Episode {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  order           Int
+  quality         String?
+  file            String?
+  audioFile       String?
+   description     String?  @db.String
+  duration        Int?
+  subtitleUrl     String?
+  movieId         String              @db.ObjectId
+  movie           Movie               @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  userProgress    UserEpisodeProgress[]
+  cards           Card[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  wordOccurrences WordOccurrence[]
+isPremium     Boolean              @default(false)
+  @@unique([movieId, order])
+  @@index([movieId])
+}
+
+// ==================== User Progress Models ====================
+
+model UserMovieProgress {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String    @db.ObjectId
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movieId        String    @db.ObjectId
+  movie          Movie     @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  isBookmarked   Boolean   @default(false)
+  isLocked       Boolean   @default(false)
+  progress       Float     @default(0)
+  lastAccessedAt DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, movieId])
+  @@index([userId])
+  @@index([movieId])
+}
+
+model UserEpisodeProgress {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String    @db.ObjectId
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episodeId    String    @db.ObjectId
+  episode      Episode   @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  lastPosition Float     @default(0)
+  timeSpent    Float     @default(0)
+  completed    Boolean   @default(false)
+  watchedCount Int       @default(1)
+  lastWatchedAt DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, episodeId])
+  @@index([userId])
+  @@index([episodeId])
+}
+
+// ==================== Podcast Progress Model ====================
+
+model PodcastProgress {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  podcastId     Int
+  episodeId     Int
+  lastPosition  Float    @default(0)
+  timeSpent     Float    @default(0)
+  completed     Boolean  @default(false)
+  listenedCount Int      @default(1)
+  lastListenedAt DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, podcastId, episodeId])
+  @@index([userId])
+  @@index([userId, podcastId])
+  @@index([userId, lastListenedAt])
+}
+
+// ==================== Flashcard System ====================
+
+model Card {
+  id                  String         @id @default(auto()) @map("_id") @db.ObjectId
+  front               String
+  back                String
+  hint                String?
+  pronunciation       String?
+  example             String?
+  exampleTranslation  String?
+  leitnerBox          Int            @default(1)
+  timesSeen           Int            @default(0)
+  successStreak       Int            @default(0)
+  failCount           Int            @default(0)
+  lastReviewedAt      DateTime?
+  nextReviewAt        DateTime       @default(now())
+  reviewStatus        String         @default("new")
+  isLearned           Boolean        @default(false)
+  userId              String         @db.ObjectId
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceType          String?
+  movieId             String?        @db.ObjectId
+  movie               Movie?         @relation(fields: [movieId], references: [id])
+  episodeId           String?        @db.ObjectId
+  episode             Episode?       @relation(fields: [episodeId], references: [id])
+  videoFile           String?
+  podcastId           String?
+  podcastEpisodeId    String?
+  subtitleStart       Float?
+  subtitleEnd         Float?
+  sentenceText        String?
+  sentenceTranslation String?
+  wordIndex           Int?
+  grammaticalJson     Json?          @db.Json
+  audioFile           String?
+  reviews             Review[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([userId, leitnerBox])
+  @@index([userId, nextReviewAt])
+  @@index([userId, reviewStatus])
+  @@index([userId, isLearned])
+  @@index([movieId])
+  @@index([episodeId])
+  @@index([podcastId])
+  @@index([podcastEpisodeId])
+}
+
+model Review {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  isCorrect Boolean
+  cardId    String   @db.ObjectId
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==================== Content Models ====================
+
+model Article {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  content         String
+  excerpt         String?
+  coverUrl        String?
+  level           CEFRLevel
+  readingTime     Int?
+  vocabularies    ArticleVocabulary[]
+  isPublished     Boolean             @default(false)
+  createdById     String?             @db.ObjectId
+  createdBy       User?               @relation(fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  dailyActivities DailyActivity[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model ArticleVocabulary {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  articleId String  @db.ObjectId
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  word      String
+  meaning   String
+  paragraph Int?
+}
+
+model Song {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  artist          String
+  album           String?
+  duration        Int
+  audioUrl        String
+  coverUrl        String?
+  lyrics          String
+  isPublished     Boolean         @default(false)
+  createdById     String?         @db.ObjectId
+  createdBy       User?           @relation(fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  dailyActivities DailyActivity[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([title])
+  @@index([artist])
+  @@index([createdById])
+}
+
+model PodcastMeta {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  podcastId   Int      @unique
+  title       String
+  slug        String   @unique
+  jsonUrl     String
+  coverUrl    String?
+  level       String   @default("C1")
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isPublished])
+}
+
+model PDF {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  fileUrl     String
+  coverUrl    String?
+  createdById String?  @db.ObjectId
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([title])
+}
+
+// ==================== Activity & Tracking ====================
+
+model DailyActivity {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @db.ObjectId
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime
+  videoWatched    Boolean  @default(false)
+  podcastListened Boolean  @default(false)
+  wordsReviewed   Boolean  @default(false)
+  articleRead     Boolean  @default(false)
+  songListened    Boolean  @default(false)
+  videoId         String?  @db.ObjectId
+  video           Movie?   @relation(fields: [videoId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  articleId       String?  @db.ObjectId
+  article         Article? @relation(fields: [articleId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  songId          String?  @db.ObjectId
+  song            Song?    @relation(fields: [songId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  progress        Float    @default(0)
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+model ActivityTracking {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String    @db.ObjectId
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityType String
+  contentId    String?
+  duration     Int
+  pathname     String?
+  isRegistered Boolean   @default(false)
+  registeredAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([activityType])
+  @@index([createdAt])
+  @@index([isRegistered])
+  @@index([userId, isRegistered])
+}
+
+// ==================== Notification & Storage ====================
+
+model NotificationLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      String   @default("reminder")
+  status    String   @default("sent")
+  sentAt    DateTime @default(now())
+  pushToken String?
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([sentAt])
+  @@index([status])
+  @@index([type])
+}
+
+model PushSubscription {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String    @db.ObjectId
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String
+  keys      Json
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([endpoint])
+  @@index([userId])
+}
+
+model Note {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  title      String
+  content    String
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  highlights Json?    @db.Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model MediaFile {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  fileName      String    @unique
+  originalName  String
+  fileType      String
+  mimeType      String
+  fileSize      Int
+  fileSizeMB    Float
+  storageKey    String
+  publicUrl     String?
+  signedUrl     String?
+  urlExpiresAt  DateTime?
+  isPublic      Boolean   @default(false)
+  accessLevel   String    @default("private")
+  duration      Int?
+  dimensions    String?
+  resolution    String?
+  uploaderId    String?   @db.ObjectId
+  uploader      User?     @relation(fields: [uploaderId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tags          String[]
+  category      String?
+  views         Int       @default(0)
+  downloads     Int       @default(0)
+  lastAccessedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([fileType])
+  @@index([isPublic])
+  @@index([uploaderId])
+  @@index([createdAt])
+  @@index([tags])
+}
+
+// ==================== Old Word Learning System (Legacy) ====================
+
+model Level {
+  id           String               @id @default(auto()) @map("_id") @db.ObjectId
+  name         CEFRLevel
+  title        String
+  description  String?
+  order        Int
+  chapters     Chapter[]
+  userProgress UserLevelProgress[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model Chapter {
+  id           String                @id @default(auto()) @map("_id") @db.ObjectId
+  title        String
+  description  String?
+  order        Int
+  levelId      String                @db.ObjectId
+  level        Level                 @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  parts        Part[]
+  userProgress UserChapterProgress[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@unique([levelId, order])
+}
+
+model Part {
+  id           String             @id @default(auto()) @map("_id") @db.ObjectId
+  title        String?
+  order        Int
+  chapterId    String             @db.ObjectId
+  chapter      Chapter            @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  words        Word[]
+  userProgress UserPartProgress[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([chapterId, order])
+}
+
+model Word {
+  id           String            @id @default(auto()) @map("_id") @db.ObjectId
+  text         String
+  phonetic     String?
+  partOfSpeech String?
+  meanings     Json
+  synonyms     String[]
+  antonyms     String[]
+  partId       String            @db.ObjectId
+  part         Part              @relation(fields: [partId], references: [id], onDelete: Cascade)
+  order        Int
+  tags         String[]
+  userProgress UserWordProgress[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+model UserLevelProgress {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String    @db.ObjectId
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  levelId        String    @db.ObjectId
+  level          Level     @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  totalParts     Int       @default(0)
+  completedParts Int       @default(0)
+  totalWords     Int       @default(0)
+  learnedWords   Int       @default(0)
+  progress       Int       @default(0)
+  lastStudied    DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, levelId])
+}
+
+model UserChapterProgress {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String    @db.ObjectId
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapterId      String    @db.ObjectId
+  chapter        Chapter   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  totalParts     Int       @default(0)
+  completedParts Int       @default(0)
+  totalWords     Int       @default(0)
+  learnedWords   Int       @default(0)
+  progress       Int       @default(0)
+  lastStudied    DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, chapterId])
+}
+
+model UserPartProgress {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String    @db.ObjectId
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partId         String    @db.ObjectId
+  part           Part      @relation(fields: [partId], references: [id], onDelete: Cascade)
+  isCompleted    Boolean   @default(false)
+  completedWords Int       @default(0)
+  totalWords     Int       @default(0)
+  lastStudied    DateTime?
+  completedAt    DateTime?
+  studyCount     Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, partId])
+  @@index([userId, isCompleted])
+  @@index([lastStudied])
+}
+
+model UserWordProgress {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String    @db.ObjectId
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordId       String    @db.ObjectId
+  word         Word      @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  isLearned    Boolean   @default(false)
+  studyCount   Int       @default(0)
+  lastStudied  DateTime?
+  firstStudied DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, wordId])
+  @@index([userId, isLearned])
+  @@index([lastStudied])
+}
+
+// ==================== New Book-Based Word Learning System ====================
+
+model WordBook {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  subtitle    String?
+  author      String?
+  publisher   String?
+  description String?   @db.String
+  image       String?
+  coverUrl    String?
+  level       CEFRLevel?
+  order       Int       @default(0)
+  isPublished Boolean   @default(false)
+
+  lessons      WordBookLesson[]
+  userProgress UserBookProgress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([level])
+  @@index([isPublished])
+}
+
+model WordBookLesson {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?   @db.String
+  order       Int
+  bookId      String    @db.ObjectId
+  book        WordBook  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  parts        WordBookPart[]
+  userProgress UserBookLessonProgress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bookId, order])
+  @@index([bookId])
+}
+
+model WordBookPart {
+  id       String         @id @default(auto()) @map("_id") @db.ObjectId
+  title    String?
+  order    Int
+  lessonId String         @db.ObjectId
+  lesson   WordBookLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  words        WordBookWord[]
+  userProgress UserBookPartProgress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lessonId, order])
+  @@index([lessonId])
+}
+
+model WordBookWord {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  text         String
+  phonetic     String?
+  partOfSpeech String?
+  meanings     Json
+  synonyms     String[]
+  antonyms     String[]
+  tags         String[]
+  order        Int
+  partId       String       @db.ObjectId
+  part         WordBookPart @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  dictionaryWordId String?         @db.ObjectId
+  dictionaryWord   DictionaryWord? @relation(fields: [dictionaryWordId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  userProgress UserBookWordProgress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([partId, order])
+  @@index([text])
+  @@index([dictionaryWordId])
+}
+
+// ==================== User Progress in Book System ====================
+
+model UserBookProgress {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String    @db.ObjectId
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId           String    @db.ObjectId
+  book             WordBook  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  totalLessons     Int       @default(0)
+  completedLessons Int       @default(0)
+  totalWords       Int       @default(0)
+  learnedWords     Int       @default(0)
+  progress         Int       @default(0)
+  isCompleted      Boolean   @default(false)
+
+  lastStudied      DateTime?
+  completedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, bookId])
+  @@index([userId])
+  @@index([bookId])
+}
+
+model UserBookLessonProgress {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String         @db.ObjectId
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId         String         @db.ObjectId
+  lesson           WordBookLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  totalParts       Int            @default(0)
+  completedParts   Int            @default(0)
+  totalWords       Int            @default(0)
+  learnedWords     Int            @default(0)
+  progress         Int            @default(0)
+  isCompleted      Boolean        @default(false)
+
+  lastStudied      DateTime?
+  completedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+}
+
+model UserBookPartProgress {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partId         String       @db.ObjectId
+  part           WordBookPart @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  completedWords Int          @default(0)
+  totalWords     Int          @default(0)
+  isCompleted    Boolean      @default(false)
+
+  lastStudied    DateTime?
+  completedAt    DateTime?
+  studyCount     Int          @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, partId])
+  @@index([userId, isCompleted])
+}
+
+model UserBookWordProgress {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String       @db.ObjectId
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordId       String       @db.ObjectId
+  word         WordBookWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  isLearned    Boolean      @default(false)
+  studyCount   Int          @default(0)
+  lastStudied  DateTime?
+  firstStudied DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, wordId])
+  @@index([userId, isLearned])
+}
+
+// ==================== Payment System ====================
+
+model PaymentGateway {
+  id           String              @id @default(auto()) @map("_id") @db.ObjectId
+  type         PaymentGatewayType
+  name         String
+  displayName  String
+  isActive     Boolean             @default(true)
+  config       Json
+  description  String?
+  icon         String?
+  sortOrder    Int                 @default(0)
+  transactions Transaction[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@unique([type])
+  @@index([isActive])
+}
+
+model Transaction {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String            @db.ObjectId
+  user            User              @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  gatewayId       String            @db.ObjectId
+  gateway         PaymentGateway    @relation(fields: [gatewayId], references: [id])
+  packageId       String?           @db.ObjectId
+  subscriptionPackage SubscriptionPackage? @relation(fields: [packageId], references: [id])
+  amount          Int
+  status          TransactionStatus @default(PENDING)
+  authority       String?
+  refId           String?
+  gatewayResponse Json?
+  callbackUrl     String?
+  description     String?
+  discountCodeId  String?           @db.ObjectId
+  discountCode    DiscountCode?     @relation(fields: [discountCodeId], references: [id])
+  finalAmount     Int?
+  paidAt          DateTime?
+  expiredAt       DateTime
+  cancelledAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([gatewayId])
+  @@index([status])
+  @@index([authority])
+  @@index([createdAt])
+  @@index([expiredAt])
+}
+
+// ==================== Dictionary & Word Occurrence ====================
+
+model DictionaryWord {
+  id               String             @id @default(auto()) @map("_id") @db.ObjectId
+  word             String             @unique
+  originalWord     String
+  totalOccurrences Int                @default(1)
+  occurrences      WordOccurrence[]
+  bookWords        WordBookWord[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([word, totalOccurrences(sort: Desc)])
+}
+
+model WordOccurrence {
+  id                String          @id @default(auto()) @map("_id") @db.ObjectId
+  dictionaryWordId  String          @db.ObjectId
+  dictionaryWord    DictionaryWord  @relation(fields: [dictionaryWordId], references: [id], onDelete: Cascade)
+  sourceType        String
+  movieId           String?         @db.ObjectId
+  movie             Movie?          @relation(fields: [movieId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  episodeId         String?         @db.ObjectId
+  episode           Episode?        @relation(fields: [episodeId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  podcastMetaId     String?
+  subtitleStart     Float
+  subtitleEnd       Float
+  sentenceText      String
+  sentenceTranslation String?
+  wordIndex         Int
+  grammaticalJson   Json?           @db.Json
+  videoFile         String?
+  audioFile         String?
+  createdAt         DateTime        @default(now())
+
+  @@index([dictionaryWordId, subtitleStart])
+  @@index([dictionaryWordId, sourceType, subtitleStart])
+  @@index([movieId])
+  @@index([episodeId])
+  @@index([podcastMetaId])
+}
+
+// ==================== Ticket System ====================
+
+model Ticket {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String    @db.ObjectId
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  message     String    @db.String
+  status      String    @default("open")
+  priority    String    @default("normal")
+  category    String    @default("support")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  replies     TicketReply[]
+  assignedTo  String?   @db.ObjectId
+  assigned    User?     @relation("AssignedTickets", fields: [assignedTo], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([assignedTo])
+}
+
+model TicketReply {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  ticketId  String   @db.ObjectId
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String   @db.String
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ticketId])
+}
+
+// ==================== Referral & Earnings System ====================
+
+model EarningSettings {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  xpPerReferral     Int      @default(10)
+  tomanPerXp        Int      @default(1000)
+  requirePayment    Boolean  @default(false)
+  minPackageMonths  Int      @default(1)
+  isActive          Boolean  @default(true)
+  updatedAt         DateTime @updatedAt
+}
+
+model UserEarning {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @db.ObjectId
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalXp         Int      @default(0)
+  totalToman      Int      @default(0)
+  totalReferrals  Int      @default(0)
+  paidReferrals   Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId])
+}
+
+model ReferralDetail {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  referrerId      String    @db.ObjectId
+  referredUserId  String    @db.ObjectId
+  referrer        User      @relation("ReferrerRefs", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredUser    User      @relation("ReferredRefs", fields: [referredUserId], references: [id], onDelete: Cascade)
+  hasPurchased    Boolean   @default(false)
+  purchaseMonths  Int?
+  xpAwarded       Int       @default(0)
+  tomanAwarded    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([referrerId, referredUserId])
+  @@index([referrerId])
+  @@index([referredUserId])
+}
+
+// ==================== Subscription Package ====================
+
+model SubscriptionPackage {
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  description   String?         @db.String
+  durationDays  Int
+  price         Int
+  originalPrice Int?
+  isActive      Boolean         @default(true)
+  sortOrder     Int             @default(0)
+  features      String[]
+  popular       Boolean         @default(false)
+  color         String          @default("blue")
+
+  transactions  Transaction[]
+  discountCodes DiscountCode[]
+  discountUsages DiscountUsage[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// ==================== Discount Code ====================
+
+model DiscountCode {
+  id           String              @id @default(auto()) @map("_id") @db.ObjectId
+  code         String              @unique
+  type         String              @default("percentage")
+  value        Int
+  maxUses      Int?
+  usedCount    Int                 @default(0)
+  minPackageId String?             @db.ObjectId
+  minPackage   SubscriptionPackage? @relation(fields: [minPackageId], references: [id])
+  isActive     Boolean             @default(true)
+  expiresAt    DateTime?
+  startsAt     DateTime?
+  description  String?             @db.String
+
+  usages       DiscountUsage[]
+  transactions Transaction[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+// ==================== Discount Usage ====================
+
+model DiscountUsage {
+  id             String              @id @default(auto()) @map("_id") @db.ObjectId
+  discountCodeId String              @db.ObjectId
+  discountCode   DiscountCode        @relation(fields: [discountCodeId], references: [id])
+  userId         String              @db.ObjectId
+  user           User                @relation(fields: [userId], references: [id])
+  packageId      String              @db.ObjectId
+  package        SubscriptionPackage @relation(fields: [packageId], references: [id])
+  originalPrice  Int
+  finalPrice     Int
+  discountAmount Int
+
+  createdAt      DateTime @default(now())
+}
+
+// ==================== Announcement ====================
+
+model Announcement {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  content         String   @db.String
+  type            String   @default("info")
+  isActive        Boolean  @default(true)
+  startsAt        DateTime?
+  expiresAt       DateTime?
+  showInDashboard Boolean  @default(true)
+  showInProfile   Boolean  @default(true)
+
+  createdById     String?  @db.ObjectId
+  createdBy       User?    @relation("CreatedAnnouncements", fields: [createdById], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+// ==================== Planner Models ====================
+
+model WeeklyPlan {
+  id        String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String            @db.ObjectId
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayOfWeek Int
+  title     String
+  isRestDay Boolean           @default(false)
+  tasks     WeeklyPlanTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, dayOfWeek])
+  @@index([userId])
+}
+
+model WeeklyPlanTask {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  weeklyPlanId String     @db.ObjectId
+  weeklyPlan   WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
+  type         TaskType
+  title        String
+  duration     Int
+  targetCount  Int        @default(1)
+  order        Int        @default(0)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+enum TaskType {
+  VIDEO
+  PODCAST
+  WORDS
+  READING
+  LISTENING
+  SPEAKING
+  WRITING
+  REVIEW
+  CUSTOM
+}
+
+model CalendarDay {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String         @db.ObjectId
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date           DateTime
+  note           String?
+  isRestDay      Boolean        @default(false)
+  totalTasks     Int            @default(0)
+  completedTasks Int            @default(0)
+  completionRate Float          @default(0)
+  tasks          CalendarTask[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+model CalendarTask {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  calendarDayId String     @db.ObjectId
+  calendarDay  CalendarDay @relation(fields: [calendarDayId], references: [id], onDelete: Cascade)
+  type         TaskType
+  title        String
+  duration     Int         @default(0)
+  targetCount  Int         @default(1)
+  isDone       Boolean     @default(false)
+  completedAt  DateTime?
+  manualAdded  Boolean     @default(false)
+  order        Int         @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ===================================================================
+// ==================== AI SPEAKING PRACTICE =========================
+// ===================================================================
+
+// ==================== AI Configuration ====================
+
+model AIProvider {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  name        String          @unique
+  displayName String
+  type        AIProviderType
+  baseURL     String
+  apiKey      String
+  isActive    Boolean         @default(true)
+  isDefault   Boolean         @default(false)
+  priority    Int             @default(10)
+  rateLimit   Int?
+  timeout     Int             @default(60000)
+  maxRetries  Int             @default(2)
+  config      Json?
+
+  models      AIModel[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([type])
+  @@index([priority])
+}
+
+model AIModel {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  providerId      String       @db.ObjectId
+  provider        AIProvider   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  modelId         String
+  displayName     String
+  taskType        AITaskType
+  isActive        Boolean      @default(true)
+  isDefault       Boolean      @default(false)
+  priority        Int          @default(10)
+  maxTokens       Int?
+  temperature     Float        @default(0.7)
+  topP            Float        @default(1.0)
+  frequencyPenalty Float       @default(0.0)
+  presencePenalty Float        @default(0.0)
+  config          Json?
+
+  usageLogs       AIUsageLog[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([providerId, modelId, taskType])
+  @@index([taskType])
+  @@index([isActive])
+  @@index([providerId, isActive, priority])
+}
+
+model AIConfig {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  key             String   @unique
+  value           String
+  description     String?
+  updatedAt       DateTime @updatedAt
+}
+
+model AIUsageLog {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  modelId       String        @db.ObjectId
+  model         AIModel       @relation(fields: [modelId], references: [id])
+  taskType      AITaskType
+  sessionId     String?
+  promptTokens  Int           @default(0)
+  completionTokens Int        @default(0)
+  totalTokens   Int           @default(0)
+  duration      Int           @default(0)
+  status        String        @default("success")
+  error         String?
+  cost          Float         @default(0)
+  createdAt     DateTime      @default(now())
+
+  @@index([modelId])
+  @@index([taskType])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+// ==================== AI Speaking Onboarding ====================
+
+model AISpeakingOnboarding {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String              @db.ObjectId
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level           UserSpeakingLevel
+  goals           SpeakingGoal[]
+  practiceLanguage String             @default("english")
+  feedbackLanguage FeedbackLanguage   @default(TARGET_ONLY)
+  hasCompleted    Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([userId])
+}
+
+// ==================== Speaking Topics ====================
+
+
+model SpeakingTopic {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  title             String
+  slug              String              @unique
+  category          String
+  level             CEFRLevel
+  mode              SpeakingMode        @default(TOPIC)
+  mainPrompt        String              @db.String
+  bulletPoints      String[]
+  durationSeconds   Int                 @default(120)
+  preparationSeconds Int                @default(30)
+  skillFocus        String?
+  vocabularyFocus   String?
+  rubric            Json?
+  isActive          Boolean             @default(true)
+  sortOrder         Int                 @default(0)
+  createdById       String?             @db.ObjectId
+  createdBy         User?               @relation("TopicCreator", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  isPremium     Boolean             @default(false) 
+  sessions          AISpeakingSession[]
+ tags              String[] 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([category])
+  @@index([level])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([mode])
+}
+
+model SpeakingScenario {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  title             String
+  slug              String              @unique
+  category          String
+  level             CEFRLevel
+  mode              SpeakingMode        @default(SCENARIO)
+  situation         String              @db.String
+  userRole          String
+  contextRole       String?
+  taskPrompt        String              @db.String
+  bulletPoints      String[]
+  durationSeconds   Int                 @default(120)
+  skillFocus        String?
+  evaluationFocus   String?
+  toneFocus         String?
+  vocabularyFocus   String?
+  rubric            Json?
+  isActive          Boolean             @default(true)
+  sortOrder         Int                 @default(0)
+  createdById       String?             @db.ObjectId
+  createdBy         User?               @relation("ScenarioCreator", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+ isPremium     Boolean             @default(false) 
+  sessions          AISpeakingSession[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([category])
+  @@index([level])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([mode])
+}
+model SpeakingQuotaConfig {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  freeTotalSeconds      Int      @default(300)
+  freeMaxSessions       Int      @default(3)
+  freeEnabled           Boolean  @default(true)
+  
+  premiumTotalSeconds   Int      @default(3600)
+  premiumMaxSessions    Int      @default(50)
+  premiumResetOnRenew   Boolean  @default(true)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model UserSpeakingUsage {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @db.ObjectId @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  usedSeconds     Int      @default(0)
+  usedSessions    Int      @default(0)
+  isPremium       Boolean  @default(false)
+  
+  lastResetAt     DateTime @default(now())
+  quotaPeriod     Int      @default(1)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SpeakingTTSLog {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId       String   @db.ObjectId
+  feedbackText    String   @db.String
+  audioUrl        String?
+  modelUsed       String?
+  duration        Int      @default(0)
+  status          String   @default("pending")
+  error           String?
+  createdAt       DateTime @default(now())
+}
+
+model SpeakingMindMap {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId       String   @db.ObjectId
+  topicTitle      String?
+  data            Json     @db.Json
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==================== AI Speaking Session ====================
+
+model AISpeakingSession {
+  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String                @db.ObjectId
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mode                SpeakingMode
+  status              SpeakingSessionStatus @default(CREATED)
+
+  // Content reference
+  topicId             String?               @db.ObjectId
+  topic               SpeakingTopic?        @relation(fields: [topicId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  scenarioId          String?               @db.ObjectId
+  scenario            SpeakingScenario?     @relation(fields: [scenarioId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  // Session config
+  durationSeconds     Int?
+  spokenSeconds       Int                   @default(0)
+  pauseCount          Int                   @default(0)
+  feedbackLanguage    FeedbackLanguage      @default(TARGET_ONLY)
+  evaluationStrictness EvaluationStrictness @default(NORMAL)
+
+  // Timestamps
+  startedAt           DateTime?
+  pausedAt            DateTime?
+  resumedAt           DateTime?
+  finishedAt          DateTime?
+  processingStartedAt DateTime?
+  completedAt         DateTime?
+
+  // Audio
+  audioUrl            String?
+  audioDuration       Float?
+  audioSize           Int?
+
+  // Transcript
+  transcriptRaw       String?               @db.String
+  transcriptClean     String?               @db.String
+  transcriptConfidence Float?
+  wordCount           Int?
+  languageDetected    String?
+
+  // Scores
+  overallScore        Float?
+  levelEstimate       CEFRLevel?
+  scoreBreakdown      Json?
+  fluencyScore        Float?
+  grammarScore        Float?
+  vocabularyScore     Float?
+  coherenceScore      Float?
+  relevanceScore      Float?
+  clarityScore        Float?
+
+  // Relations
+  feedback            AISpeakingFeedback?
+  corrections         AISpeakingCorrection[]
+
+  // Retry system - ساده‌شده برای MongoDB
+  retryOf             String?               @db.ObjectId
+  retryCount          Int                   @default(0)
+
+  // Metadata
+  errorMessage        String?
+  modelUsed           String?
+  processingDuration  Int?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, mode])
+  @@index([userId, status])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([topicId])
+  @@index([scenarioId])
+  @@index([status])
+  @@index([retryOf])
+}
+
+// ==================== AI Speaking Feedback ====================
+model AISpeakingFeedback {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId         String              @db.ObjectId
+  session           AISpeakingSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  summary           String?             @db.String
+  strengths         String[]
+  improvements      String[]
+  betterAnswer      String?             @db.String
+  nextPractice      Json?
+  vocabularyPack    Json?
+ mispronouncedWords Json?
+  modelName         String?
+  tokenUsage        Json?
+  rawResponse       Json?
+  generatedAt       DateTime            @default(now())
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([sessionId])
+}
+
+// ==================== AI Speaking Correction ====================
+
+model AISpeakingCorrection {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId       String              @db.ObjectId
+  session         AISpeakingSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId          String              @db.ObjectId
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  originalText    String
+  correctedText   String
+  naturalVersion  String?
+  explanation     String?
+  errorType       CorrectionErrorType @default(OTHER)
+  severity        ErrorSeverity       @default(MEDIUM)
+  position        Int?
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([errorType])
+}
+
+
+// ==================== AI Speaking User Progress ====================
+
+model AISpeakingProgress {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String   @db.ObjectId
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  totalSessions       Int      @default(0)
+  totalSpokenSeconds  Int      @default(0)
+  averageScore        Float?
+  averageFluency      Float?
+  averageGrammar      Float?
+  averageVocabulary   Float?
+  averageCoherence    Float?
+  averageRelevance    Float?
+  averageClarity      Float?
+  estimatedLevel      CEFRLevel?
+  commonErrors        Json?
+  practicedTopics     String[]
+  streakCount         Int      @default(0)
+  longestStreak       Int      @default(0)
+  lastSessionAt       DateTime?
+  lastStreakDate      DateTime?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([userId])
+}
+
+// ==================== Vocabulary Saved from Speaking ====================
+model SpeakingSavedWord {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId   String?
+  word        String
+  translation String?
+  example     String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([sessionId])
+}
+
+model SubtitleTranslationSession {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName    String
+  totalLines  Int
+  totalChunks Int
+  chunkSize   Int      @default(100)
+  status      String   @default("idle")
+  finalJson   Json?
+  outputUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  chunks      SubtitleTranslationChunk[]
+}
+
+model SubtitleTranslationChunk {
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId      String  @db.ObjectId
+  session        SubtitleTranslationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  chunkIndex     Int
+  subtitles      Json
+  status         String  @default("pending")
+  translatedData Json?
+  error          String?
+  modelUsed      String?
+  retryCount     Int     @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([sessionId, chunkIndex])
+}
+
+model PodcastTranslationSession {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  fileName    String
+  totalLines  Int
+  totalChunks Int
+  chunkSize   Int      @default(30)
+  status      String   @default("idle")
+  finalJson   Json?
+  outputUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  chunks PodcastTranslationChunk[]
+  user   User @relation(fields: [userId], references: [id])
+
+  @@map("podcast_translation_sessions")
+}
+
+model PodcastTranslationChunk {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId       String   @db.ObjectId
+  chunkIndex      Int
+  subtitles       Json
+  status          String   @default("pending")
+  translatedData  Json?
+  error           String?
+  modelUsed       String?
+  retryCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  session PodcastTranslationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("podcast_translation_chunks")
+}
+
+model AIQuestionUsage {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @db.ObjectId @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionCount   Int      @default(0)
+  lastQuestionAt  DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+
+// ==================== New Writing Enums ====================
+
+enum WritingMode {
+  FREE
+  TOPIC
+  TASK
+}
+
+enum WritingSessionStatus {
+  CREATED
+  WRITING
+  SUBMITTED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  PARTIAL_COMPLETED
+  FAILED_ANALYSIS
+}
+
+enum WritingTaskType {
+  ESSAY
+  LETTER
+  REPORT
+  ARTICLE
+  REVIEW
+  PROPOSAL
+  DESCRIPTION
+  NARRATIVE
+  ARGUMENTATIVE
+  OPINION
+  SUMMARY
+  EMAIL
+  STORY
+  OTHER
+}
+
+enum WritingExamType {
+  IELTS_ACADEMIC
+  IELTS_GENERAL
+  TOEFL
+  PTE
+  CAMBRIDGE
+  CUSTOM
+}
+
+// ==================== Writing Models ====================
+
+model WritingTopic {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  title             String
+  slug              String              @unique
+  category          String
+  subCategory       String?
+  level             CEFRLevel
+  mode              WritingMode         @default(TOPIC)
+  taskType          WritingTaskType     @default(ESSAY)
+  examType          WritingExamType?    @default(CUSTOM)
+  prompt            String              @db.String
+  instructions      String?             @db.String
+  bulletPoints      String[]
+  imageUrl          String?
+  minWords          Int                 @default(150)
+  maxWords          Int?
+  suggestedTime     Int                 @default(30) // minutes
+  skillFocus        String?
+  vocabularyFocus   String?
+  grammarFocus      String?
+  evaluationRubric  Json?
+  sampleAnswer      String?             @db.String
+  isActive          Boolean             @default(true)
+  isPremium         Boolean             @default(false)
+  sortOrder         Int                 @default(0)
+  createdById       String?             @db.ObjectId
+  createdBy         User?               @relation("WritingTopicCreator", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tags              String[] 
+  sessions          WritingSession[]
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([category])
+  @@index([subCategory])
+  @@index([level])
+  @@index([taskType])
+  @@index([examType])
+  @@index([isActive])
+  @@index([mode])
+  @@index([sortOrder])
+}
+
+model WritingQuotaConfig {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  freeTotalEssays       Int      @default(3)
+  freeTotalWords        Int      @default(500)
+  freeEnabled           Boolean  @default(true)
+  
+  premiumTotalEssays    Int      @default(100)
+  premiumTotalWords     Int      @default(10000)
+  premiumResetOnRenew   Boolean  @default(true)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model UserWritingUsage {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @db.ObjectId @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  usedEssays      Int      @default(0)
+  usedWords       Int      @default(0)
+  isPremium       Boolean  @default(false)
+  
+  lastResetAt     DateTime @default(now())
+  quotaPeriod     Int      @default(1)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model WritingSession {
+  id                  String                @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String                @db.ObjectId
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mode                WritingMode
+  status              WritingSessionStatus  @default(CREATED)
+  
+  // Content reference
+  topicId             String?               @db.ObjectId
+  topic               WritingTopic?         @relation(fields: [topicId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  
+  // Session config
+  writingDuration     Int?
+  wordLimit           Int?
+  feedbackLanguage    FeedbackLanguage      @default(TARGET_ONLY)
+  evaluationStrictness EvaluationStrictness @default(NORMAL)
+  
+  // Timestamps
+  startedAt           DateTime?
+  submittedAt         DateTime?
+  processingStartedAt DateTime?
+  completedAt         DateTime?
+  
+  // Content
+  writingContent      String?               @db.String
+  wordCount           Int?
+  characterCount      Int?
+  paragraphCount      Int?
+  imageUrl            String?
+  
+  // Scores
+  overallScore        Float?
+  levelEstimate       CEFRLevel?
+  scoreBreakdown      Json?
+  taskAchievement     Float?
+  coherenceCohesion   Float?
+  lexicalResource     Float?
+  grammaticalRange    Float?
+  organization        Float?
+  contentQuality      Float?
+  
+  // Relations
+  feedback            WritingFeedback?
+  corrections         WritingCorrection[]
+  
+  // Metadata
+  errorMessage        String?
+  modelUsed           String?
+  processingDuration  Int?
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([userId, mode])
+  @@index([userId, status])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([topicId])
+  @@index([status])
+}
+
+model WritingFeedback {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId         String              @db.ObjectId
+  session           WritingSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  summary           String?             @db.String
+  strengths         String[]
+  improvements      String[]
+  betterVersion     String?             @db.String
+  bandScore         String?
+  detailedAnalysis  Json?
+  vocabularyPack    Json?
+  grammarPack       Json?
+  nextPractice      Json?
+  modelName         String?
+  tokenUsage        Json?
+  rawResponse       Json?
+  generatedAt       DateTime            @default(now())
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@unique([sessionId])
+}
+
+model WritingCorrection {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId       String              @db.ObjectId
+  session         WritingSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId          String              @db.ObjectId
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  originalText    String
+  correctedText   String
+  naturalVersion  String?
+  explanation     String?
+  errorType       CorrectionErrorType @default(OTHER)
+  severity        ErrorSeverity       @default(MEDIUM)
+  position        Int?
+  category        String?             // grammar, vocabulary, structure, etc.
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  @@index([sessionId])
+  @@index([userId])
+  @@index([errorType])
+  @@index([category])
+}
+
+model WritingProgress {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String   @db.ObjectId
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  totalSessions       Int      @default(0)
+  totalWords          Int      @default(0)
+  averageScore        Float?
+  averageTaskAchievement  Float?
+  averageCoherence    Float?
+  averageLexical      Float?
+  averageGrammar      Float?
+  estimatedLevel      CEFRLevel?
+  commonErrors        Json?
+  practicedTopics     String[]
+  streakCount         Int      @default(0)
+  longestStreak       Int      @default(0)
+  lastSessionAt       DateTime?
+  lastStreakDate      DateTime?
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@unique([userId])
+}
+
+model WritingSavedWord {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId   String?
+  word        String
+  translation String?
+  example     String?
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([sessionId])
+}
+model WritingOnboarding {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String              @db.ObjectId
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level           UserSpeakingLevel
+  goals           SpeakingGoal[]
+  practiceLanguage String            @default("english")
+  feedbackLanguage FeedbackLanguage   @default(TARGET_ONLY)
+  hasCompleted    Boolean             @default(false)
+  preferredTypes  WritingTaskType[]
+  targetExam      WritingExamType?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  @@unique([userId])
+}
+
+
+// ==================== Explore/Reels Models ====================
+
+model ExploreReel {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  title         String?
+  description   String?   @db.String
+  slug          String    @unique
+  
+  // Media
+  mediaType     String    @default("video") // video | image
+  mediaUrl      String                       // m3u8 link for video, image url for image
+  thumbnailUrl  String?                      // poster/thumbnail
+  folderPath    String?                      // cloud folder path: explore/reelsId/
+  
+  // Content
+  subtitlesJson Json?     @db.Json           // subtitle data like podcasts
+  duration      Int?                         // in seconds
+  width         Int?                         // 1080
+  height        Int?                         // 1920 (9:16 ratio)
+  
+  // Categorization
+  categoryId    String?   @db.ObjectId
+  category      ExploreCategory? @relation(fields: [categoryId], references: [id])
+  languageId    String?   @db.ObjectId
+  language      Language? @relation(fields: [languageId], references: [id], onDelete: SetNull)
+  level         CEFRLevel?
+  
+  // Engagement
+  viewCount     Int       @default(0)
+  likeCount     Int       @default(0)
+  commentCount  Int       @default(0)
+  saveCount     Int       @default(0)
+  shareCount    Int       @default(0)
+  
+  // Status
+  isPublished   Boolean   @default(false)
+  isPremium     Boolean   @default(false)
+  
+  // Relations
+  likes         ExploreLike[]
+  comments      ExploreComment[]
+  saves         ExploreSave[]
+  views         ExploreView[]
+  
+  createdById   String?   @db.ObjectId
+  createdBy     User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([isPublished])
+  @@index([categoryId])
+  @@index([languageId])
+  @@index([level])
+  @@index([createdAt(sort: Desc)])
+  @@index([likeCount(sort: Desc)])
+  @@index([viewCount(sort: Desc)])
+}
+
+model ExploreCategory {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  name        String        @unique
+  slug        String        @unique
+  description String?       @db.String
+  icon        String?
+  sortOrder   Int           @default(0)
+  isActive    Boolean       @default(true)
+  
+  reels       ExploreReel[]
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model ExploreLike {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  reelId    String      @db.ObjectId
+  reel      ExploreReel @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  userId    String      @db.ObjectId
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime    @default(now())
+
+  @@unique([reelId, userId])
+  @@index([reelId])
+  @@index([userId])
+}
+
+model ExploreComment {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  reelId    String      @db.ObjectId
+  reel      ExploreReel @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  userId    String      @db.ObjectId
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String      @db.String
+  parentId  String?     @db.ObjectId
+  parent    ExploreComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   ExploreComment[] @relation("CommentReplies")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([reelId])
+  @@index([userId])
+  @@index([parentId])
+}
+model ExploreSave {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  reelId    String      @db.ObjectId
+  reel      ExploreReel @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  userId    String      @db.ObjectId
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime    @default(now())
+
+  @@unique([reelId, userId])
+  @@index([reelId])
+  @@index([userId])
+}
+
+model ExploreView {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  reelId    String      @db.ObjectId
+  reel      ExploreReel @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  userId    String?     @db.ObjectId
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  watchDuration Int?    // seconds watched
+  completed     Boolean @default(false)
+  
+  createdAt   DateTime  @default(now())
+
+  @@index([reelId])
+  @@index([userId])
+}
+
+
+
+
+
+
+
+
+
+// ===================================================================
+// ==================== LANDING SITE MODELS ==========================
+// ===================================================================
+
+// ==================== Pre-Registration ====================
+
+model PreRegistration {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  username      String   @unique
+  phone         String   @unique
+  referralCode  String?
+  queuePosition Int      @default(0)
+  priorityScore Int      @default(0)
+  referralCount Int      @default(0)
+  status        String   @default("pending")
+  cardGenerated Boolean  @default(false)
+  cardUrl       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([referralCode])
+  @@index([status])
+  @@index([queuePosition])
+  @@map("preregistrations")
+}
+
+// ==================== SEO Article Models ====================
+
+model ArticlePrompt {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?   @db.String
+  prompt      String    @db.String
+  category    String?
+  isActive    Boolean   @default(true)
+
+  articles    SeoArticle[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@map("article_prompts")
+}
+
+model SeoArticle {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  slug            String        @unique
+  metaTitle       String?
+  metaDescription String?       @db.String
+  ogTitle         String?
+  ogDescription   String?
+  content         String        @db.String
+  excerpt         String?       @db.String
+  coverImage      String?
+  keywords        String[]
+  tags            String[]
+  category        String?
+  readingTime     Int?
+  wordCount       Int?
+
+  promptId        String?       @db.ObjectId
+  prompt          ArticlePrompt? @relation(fields: [promptId], references: [id])
+
+  authorId        String?       @db.ObjectId
+  author          User?         @relation(fields: [authorId], references: [id])
+
+  isPublished     Boolean       @default(false)
+  isIndexed       Boolean       @default(true)
+  canonicalUrl    String?
+  schemaMarkup    Json?
+  viewCount       Int           @default(0)
+  publishedAt     DateTime?
+
+  views           SeoArticleView[]
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([isPublished])
+  @@index([publishedAt(sort: Desc)])
+  @@index([category])
+  @@index([keywords])
+  @@index([authorId])
+  @@map("seo_articles")
+}
+
+model SeoArticleView {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  articleId String     @db.ObjectId
+  article   SeoArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userAgent String?
+  ipAddress String?
+  referrer  String?
+  country   String?
+  createdAt DateTime   @default(now())
+
+  @@index([articleId])
+  @@index([createdAt])
+  @@map("seo_article_views")
+}
+
+// ==================== Cron Job Log ====================
+
+model CronJobLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  jobName     String
+  status      String
+  details     String?  @db.String
+  error       String?
+  startedAt   DateTime
+  completedAt DateTime?
+  createdBy   String?  @db.ObjectId
+  user        User?    @relation(fields: [createdBy], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  @@index([jobName])
+  @@index([status])
+  @@index([startedAt(sort: Desc)])
+  @@map("cron_job_logs")
+}
+
+model KeywordPool {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String            // اسم گروه: "آموزشگاه‌های آیلتس شیراز"
+  keywords    String[]          // کلیدواژه‌های این گروه
+  category    String?           // دسته‌بندی اصلی
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("keyword_pools")
+}

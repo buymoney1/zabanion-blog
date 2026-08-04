@@ -1,0 +1,6 @@
+{
+    "cron": [
+      "0 11,18,20,22 * * * curl -fsS -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/auto-blog"
+    ]
+  }
+  
