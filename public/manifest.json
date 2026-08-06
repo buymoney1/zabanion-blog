@@ -1,0 +1,26 @@
+{
+    "name": "زبانیون - پلتفرم آموزش زبان انگلیسی با هوش مصنوعی",
+    "short_name": "زبانیون",
+    "description": "یادگیری زبان انگلیسی با فیلم، پادکست، فلش‌کارت و مکالمه با هوش مصنوعی.",
+    "lang": "fa",
+    "dir": "rtl",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#FDFCF8",
+    "theme_color": "#0d281f",
+    "categories": [
+      "education",
+      "productivity"
+    ],
+    "icons": [
+      {
+        "src": "/icon.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any maskable"
+      }
+    ]
+  }
+  

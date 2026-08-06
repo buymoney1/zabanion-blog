@@ -5,13 +5,11 @@ import { researchTopic, ResearchData } from "./serper-search";
 
 // ==================== Types ====================
 interface ExtractedData {
-  names: string[];
-  prices: string[];
-  addresses: string[];
-  phones: string[];
-  statistics: string[];
-  features: string[];
+  entities: string[];
+  numbersAndStats: string[];
+  moneyValues: string[];
   quotes: string[];
+  contactInfo: string[];
 }
 
 // ==================== Main ====================
@@ -34,7 +32,7 @@ export async function generateResearchedArticle(
   console.log(`\n🚀 GENERATING: ${articleTopic}\n`);
 
   const research = await doResearch(keywords);
-  const extractedData = extractWithRegex(research.competitorContents.join("\n"));
+  const extractedData = extractGenericData(research.competitorContents.join("\n"));
   const { title, content, metaDescription } = await doGenerate(articleTopic, keywords, research, extractedData);
 
   console.log(`✅ "${title}" | ${research.sourcesScraped} src | ${countDataPoints(extractedData)} pts\n`);
@@ -65,66 +63,54 @@ async function doResearch(keywords: string[]): Promise<ResearchData> {
   }
 }
 
-// ==================== Data Extraction ====================
+// ==================== Generic Data Extraction ====================
 function emptyData(): ExtractedData {
-  return { names: [], prices: [], addresses: [], phones: [], statistics: [], features: [], quotes: [] };
+  return { entities: [], numbersAndStats: [], moneyValues: [], quotes: [], contactInfo: [] };
 }
 
 function countDataPoints(d: ExtractedData): number {
-  return d.names.length + d.prices.length + d.addresses.length + d.phones.length +
-    d.statistics.length + d.features.length + d.quotes.length;
+  return d.entities.length + d.numbersAndStats.length + d.moneyValues.length + d.quotes.length + d.contactInfo.length;
 }
 
 function unique(arr: string[]): string[] {
   return [...new Set(arr.filter(Boolean))];
 }
 
-function extractWithRegex(content: string): ExtractedData {
+function extractGenericData(content: string): ExtractedData {
   if (!content || content.length < 50) {
     console.log("   ⏩ No content");
     return emptyData();
   }
 
-  console.log("📋 Extracting...");
+  console.log("📋 Extracting Generic Data...");
 
-  // Names
-  const names = unique([
-    ...content.matchAll(/(?:آموزشگاه|موسسه|خانه|آکادمی|مرکز|مدرسه|کانون)\s+(?:زبان\s+)?(?:آیلتس\s+)?([آ-یa-zA-Z\s]{2,40})/gi)
-  ].map(m => m[0].trim()).filter(n => n.length > 6 && n.length < 60)).slice(0, 20);
+  // استخراج موجودیت‌های مهم (نام برندها، شرکت‌ها، محصولات، پلتفرم‌ها و...)
+  const entities = unique([
+    ...content.matchAll(/(?:شرکت|برند|پلتفرم|محصول|نرم‌افزار|سایت|موسسه|سازمان|فناوری|مدل)\s+([آ-یa-zA-Z\s]{3,40})/gi)
+  ].map(m => m[1].trim())).slice(0, 15);
 
-  // Prices
-  const prices = unique([
-    ...content.matchAll(/(\d+[\d,\/]*\s*(?:میلیون|هزار|تومان|ت|TM))\s*(?:تومان)?/gi)
-  ].map(m => m[0].trim())).slice(0, 10);
-
-  // Addresses
-  const addresses = unique([
-    ...content.matchAll(/(?:آدرس|واقع در|محله|منطقه|خیابان|بلوار|میدان|شعبه|نبش|کوچه)\s*:?\s*([آ-یa-zA-Z0-9\s،,\-]{5,80})/gi)
-  ].map(m => (m[1] || m[0]).trim()).filter(a => a.length > 8)).slice(0, 10);
-
-  // Phones
-  const phones = unique([
-    ...content.matchAll(/(?:۰۹|09)\s*-?\s*\d{2}\s*-?\s*\d{3}\s*-?\s*\d{2}\s*-?\s*\d{2}/g)
-  ].map(m => m[0].replace(/\s/g, ''))).slice(0, 5);
-
-  // Statistics
-  const statistics = unique([
-    ...content.matchAll(/(\d+[\d,.]*\s*(?:%|نفر|سال|ماه|هفته|روز|ساعت|جلسه|ترم|سطح|شعبه|مدرک|نمره|کلمه))/gi)
+  // استخراج آمار، درصدها و اعداد مهم
+  const numbersAndStats = unique([
+    ...content.matchAll(/(\d+[\d,./]*\s*(?:%|درصد|نفر|سال|ماه|روز|ساعت|کیلو|متر|برابر|میلیون|میلیارد))/gi)
   ].map(m => m[0].trim())).slice(0, 15);
 
-  // Features
-  const features = unique([
-    ...content.matchAll(/(?:دوره|کلاس|پکیج|آزمون|ماک|تضمینی|فشرده|خصوصی|آنلاین|حضوری|نیمه\s*خصوصی|استاد|منبع|کتاب)\s*:?\s*([آ-یa-zA-Z0-9\s،,\-]{3,60})/gi)
-  ].map(m => m[0].trim()).filter(f => f.length > 6)).slice(0, 20);
+  // استخراج مبالغ و قیمت‌ها (در صورت وجود)
+  const moneyValues = unique([
+    ...content.matchAll(/(\d+[\d,\/]*\s*(?:تومان|ریال|دلار|یورو|پوند|Toman|USD))/gi)
+  ].map(m => m[0].trim())).slice(0, 10);
 
-  // Quotes
+  // استخراج نقل قول‌ها و جملات برجسته
   const quotes = unique([
-    ...content.matchAll(/["«]([^"«»]{15,200})["»]/g)
-  ].map(m => m[1].trim()).filter(q => q.length > 10 && q.length < 200)).slice(0, 5);
+    ...content.matchAll(/["«]([^"«»]{15,150})["»]/g)
+  ].map(m => m[1].trim())).slice(0, 10);
 
-  const result = { names, prices, addresses, phones, statistics, features, quotes };
-  const total = countDataPoints(result);
-  console.log(`   ✅ ${total} pts | ${names.length} names | ${prices.length} prices | ${features.length} features`);
+  // استخراج اطلاعات تماس (ایمیل، تلفن)
+  const contactInfo = unique([
+    ...content.matchAll(/(?:[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6})|(?:09\d{9})|(?:\b\d{3,4}-\d{4,8}\b)/g)
+  ].map(m => m[0].trim())).slice(0, 5);
+
+  const result = { entities, numbersAndStats, moneyValues, quotes, contactInfo };
+  console.log(`   ✅ ${countDataPoints(result)} data points extracted.`);
   return result;
 }
 
@@ -150,9 +136,6 @@ async function doGenerate(
 
   if (!result.success) throw new Error(result.error || "Generation failed");
 
-  const wordCount = result.text.replace(/<[^>]*>/g, "").split(/\s+/).filter(Boolean).length;
-  console.log(`   Words: ${wordCount}`);
-
   return {
     title: extractTitle(result.text) || keywords[0],
     content: result.text,
@@ -170,117 +153,81 @@ function buildPrompt(
 ): string {
   const dp = countDataPoints(extractedData);
 
-  // Build data block with clear formatting
   let dataBlock = "";
   if (dp > 0) {
-    const formatList = (label: string, items: string[]) => {
-      if (!items.length) return "";
-      return `**${label}:**\n${items.map((item, i) => `${i + 1}. ${item}`).join("\n")}\n\n`;
-    };
-
+    const formatList = (label: string, items: string[]) => items.length ? `**${label}:**\n${items.map((item, i) => `${i + 1}. ${item}`).join("\n")}\n\n` : "";
     dataBlock = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📦 داده‌های واقعی استخراج‌شده (${dp} مورد)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+این داده‌ها از بررسی رقبا به دست آمده‌اند تا محتوای تو دقیق و مستند باشد:
 
-${formatList("اسامی آموزشگاه‌ها و موسسات", extractedData.names)}
-${formatList("قیمت‌ها و هزینه‌ها", extractedData.prices)}
-${formatList("آدرس‌ها و محله‌ها", extractedData.addresses)}
-${formatList("شماره تماس‌ها", extractedData.phones)}
-${formatList("آمار و ارقام", extractedData.statistics)}
-${formatList("ویژگی‌ها و خدمات", extractedData.features)}
-${formatList("نقل قول‌ها", extractedData.quotes)}
+${formatList("موجودیت‌های مرتبط (برندها، محصولات، و ...)", extractedData.entities)}
+${formatList("آمار و ارقام کلیدی", extractedData.numbersAndStats)}
+${formatList("مبالغ و هزینه‌ها", extractedData.moneyValues)}
+${formatList("نقل قول‌ها و عبارات مهم", extractedData.quotes)}
 
-⚠️ **تکلیف اجباری:**
-- هر اسم واقعی باید حداقل یک بار در مقاله ذکر شود
-- هر قیمت باید با زمینه و توضیح بیاید
-- از اسم‌های ساختگی مثل "آموزشگاه الف" استفاده نکن
-- این داده‌ها برگ برنده تو مقابل رقباست`;
+⚠️ **تکلیف اجباری:** 
+- در طول مقاله، از این آمار و نام‌ها به عنوان فکت‌های مستند استفاده کن تا اعتبار مقاله (E-E-A-T) بالا برود.
+- از اطلاعات ساختگی یا نام‌های فرضی مثل "شرکت الف" یا "سایت فلان" پرهیز کن.
+`;
   }
 
   const researchBlock = hasResearch ? `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 تحقیقات رقبا (${research.sourcesScraped} منبع)
+📊 تحقیقات سئو و بررسی رقبا
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+متن منابع برتر رقبا:
 ${sourcesText.slice(0, 25000)}
 
-**شکاف‌های محتوایی:** ${research.competitorAnalysis}
-
-**سوالات واقعی گوگل:** ${research.peopleAlsoAsk.map(p => p.question).join(" | ") || "ندارد"}
-
+**شکاف‌های محتوایی رقبا:** ${research.competitorAnalysis}
+**سوالات واقعی کاربران در گوگل:** ${research.peopleAlsoAsk.map(p => p.question).join(" | ") || "ندارد"}
 **جستجوهای مرتبط:** ${research.relatedSearches.join("، ") || "ندارد"}
 ` : "";
 
-  return `تو یک نویسنده فارسی‌زبان حرفه‌ای و متخصص سئو با ۱۵ سال تجربه در حوزه آموزش زبان هستی.
+  return `تو یک نویسنده ارشد فارسی‌زبان و استراتژیست سئو (SEO) هستی.
 
-🎯 **ماموریت:** نوشتن بهترین و کامل‌ترین مقاله فارسی درباره "${articleTopic}"
+🎯 **ماموریت:** نوشتن یک مقاله جامع، مرجع و رتبه یک گوگل درباره موضوع: "${articleTopic}"
+کلمات کلیدی اصلی: ${keywords.join("، ")}
 
 ${researchBlock}
 
 ${dataBlock}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔴 قوانین طلایی نویسندگی
+🔴 قوانین طلایی و استانداردهای محتوایی
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-۱. **داده‌محور باش، نه شعارمحور.**
-هر ادعایی که می‌کنی را با یک داده واقعی پشتیبانی کن.
-اسم واقعی بیاور، قیمت واقعی بگو، آدرس واقعی بده.
-هر ۲۰۰ کلمه = حداقل ۱ داده مشخص از لیست بالا.
-داده‌های استخراج‌شده برگ برنده تو هستند - از همه استفاده کن.
+۱. **جامعیت و ارزش افزوده:**
+صرفاً حرف‌های رقبا را تکرار نکن. اطلاعات را ترکیب کن، ساختار بهتری به آن‌ها بده و شکاف‌های محتوایی را با زاویه دید جدید و توضیحات عمیق‌تر پر کن. به جای کلی‌گویی، مثال بزن و چرایی/چگونگی را توضیح بده.
 
-۲. **صمیمی، روان، خودمانی بنویس.**
-انگار داری با یک دوست باهوش حرف می‌زنی.
-پاراگراف‌های کوتاه (۲-۴ خط). نیم‌فاصله کامل.
-از "شما"، "تصور کنید"، "بیایید صادقانه نگاه کنیم" استفاده کن.
+۲. **لحن و نگارش:**
+لحن باید حرفه‌ای، روان، قابل اعتماد و در عین حال صمیمی باشد. پاراگراف‌ها را کوتاه نگه دار (حداکثر ۳-۴ خط). از نیم‌فاصله‌های استاندارد فارسی استفاده کن. از عبارات پرکننده و حشو (مثل "همانطور که می‌دانید"، "شایان ذکر است") خودداری کن.
 
-۳. **حشو و کلی‌گویی ممنوع.**
-"همانطور که می‌دانید"، "لازم به ذکر است"، "شایان ذکر است" = مرگ محتوا.
-هر جمله باید یک نکته جدید و مفید داشته باشد.
-اگر جمله‌ای را می‌شود حذف کرد بدون اینکه چیزی از دست برود، حذفش کن.
+۳. **ساختار حرفه‌ای HTML:**
+فقط و فقط کد HTML خالص تولید کن (بدون تگ‌های markdown مثل \`\`\`html).
+- <h1 class="text-3xl font-bold mb-6"> برای عنوان اصلی مقاله (فقط یک بار).
+- <h2 class="text-2xl font-semibold mt-8 mb-4"> برای بخش‌های اصلی.
+- <h3> برای زیرتیترها و سوالات متداول.
+- <p class="mb-4 leading-relaxed"> برای متن‌ها.
+- از <ul>, <ol>, <li> برای لیست‌ها استفاده کن تا خوانایی بالا برود.
+- از <strong> برای برجسته کردن مفاهیم کلیدی و از <blockquote> برای نقل قول‌ها استفاده کن.
+- از باکس‌های محتوایی استفاده کن: 
+  <div class="summary-box bg-gray-100 p-4 rounded-lg mb-6"> برای خلاصه مقاله
+  <div class="tip-box bg-amber-50 border-r-4 border-amber-500 p-4 my-4"> برای نکات طلایی
+  <div class="warning-box bg-red-50 border-r-4 border-red-500 p-4 my-4"> برای هشدارها
 
-۴. **ساختار منطقی و خوانا.**
-از <h1> برای عنوان اصلی (فقط یکبار).
-از <h2> برای بخش‌های اصلی.
-از <h3> برای زیربخش‌ها و سوالات FAQ.
-از <p> برای پاراگراف‌ها.
-از <ul>/<ol> برای لیست‌ها.
-از <strong> برای تأکید روی کلمات کلیدی.
-از <em> برای نکات ظریف.
-از <br/> و <hr/> برای جداسازی بخش‌ها.
-از <table> فقط وقتی واقعاً به مقایسه کمک می‌کند.
-از <div class="summary-box"> برای خلاصه ابتدای مقاله.
-از <div class="warning-box"> برای هشدارهای مهم.
-از <div class="tip-box"> برای نکات طلایی.
+۴. **سوالات متداول (FAQ):**
+در انتهای مقاله، حتماً یک بخش FAQ شامل سوالات واقعی کاربران (بر اساس داده‌های بالا) با پاسخ‌های دقیق و کاربردی (حداقل ۴ خط برای هر پاسخ) اضافه کن.
 
-۵. **عمق بده، نه عرض.**
-۵-۷ نکته را عمیقاً پوشش بده، نه ۲۰ نکته سطحی.
-برای هر نکته بگو: چی هست؟ چرا مهمه؟ چطور انجامش بدم؟ مثال بزن.
-بعد از هر آمار بگو "این یعنی..." تا خواننده معنی آن را بفهمد.
+۵. **نتیجه‌گیری و دعوت به اقدام (CTA):**
+مقاله را با یک جمع‌بندی ساختاریافته، گام‌های عملی بعدی برای خواننده و یک سوال تعاملی برای ترغیب به کامنت‌گذاری به پایان برسان.
 
-۶. **زاویه دید منحصربه‌فرد.**
-حداقل یک بخش کامل را به چیزی اختصاص بده که هیچ رقیبی نگفته.
-شکاف‌های تحلیل‌شده را پر کن.
-سوالات بی‌پاسخ را جواب بده.
+۶. **طول مقاله:**
+حداقل ${hasResearch ? "۱۸۰۰" : "۱۲۰۰"} کلمه بنویس. کیفیت فدای کمیت نشود، اما تمام زوایای موضوع باید پوشش داده شود.
 
-۷. **FAQ واقعی و مفید.**
-از <h3> برای سوالات و <p> برای پاسخ‌ها استفاده کن.
-پاسخ‌ها حداقل ۴-۵ خط و واقعاً مفید باشند، نه یک خطی.
-به سوالاتی جواب بده که واقعاً در گوگل جستجو می‌شوند.
-
-۸. **جمع‌بندی عملیاتی.**
-پایان مقاله یک برنامه اقدام مشخص بده.
-به خواننده بگو دقیقاً قدم بعدی چیست.
-با یک سوال درگیرکننده تمام کن تا کامنت بگذارد.
-
-۹. **طول مقاله:** ${hasResearch ? "حداقل ۱۸۰۰ کلمه (با این حجم داده، کمتر از این یعنی کمکاری)" : "حداقل ۱۲۰۰ کلمه"}.
-
-۱۰. **فقط HTML خالص برگردان.** بدون markdown، بدون json، بدون توضیح اضافه.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚀 برو. بهترین مقاله‌ای که تا حالا نوشتی را بنویس.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+🚀 اکنون مقاله نهایی را به صورت HTML استایل‌دهی شده تولید کن.
+`;
 }
 
 // ==================== Helpers ====================
