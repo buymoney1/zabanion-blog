@@ -7,6 +7,21 @@ Disallow: /api
 # Host
 Host: https://zabanionapp.ir
 
+
+# مسیرهای خصوصی — نباید ایندکس شوند
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+Disallow: /signup
+Disallow: /signin
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /panel
+Disallow: /panel/
+Disallow: /_next/
+
 # Sitemaps
 Sitemap: https://zabanionapp.ir/sitemap.xml
-Sitemap: https://zabanionapp.ir/blog-sitemap.xml

@@ -278,10 +278,12 @@ plannerOnboardingSkipped   Boolean               @default(false)
   // ===== Payment =====
   transactions        Transaction[]
 
+  seoArticles     SeoArticle[]
+  cronJobLogs     CronJobLog[]
+
   discountUsages      DiscountUsage[]
   announcements       Announcement[]     @relation("CreatedAnnouncements")
-seoArticles     SeoArticle[]
-  cronJobLogs     CronJobLog[]
+
   // ===== Notifications =====
   notificationLogs    NotificationLog[]
   pushSubscriptions   PushSubscription[]
@@ -608,6 +610,31 @@ model Song {
   @@index([createdById])
 }
 
+// ==================== Podcast Episode (جدید) ====================
+
+model PodcastEpisode {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  podcastMetaId String      @db.ObjectId
+  podcastMeta   PodcastMeta @relation(fields: [podcastMetaId], references: [id], onDelete: Cascade)
+  
+  episodeId     Int?        @unique
+  name          String
+  order         Int
+  duration      Int?
+  quality       String?
+  file          String?
+  audioFile     String?
+  subtitleUrl   String?
+  description   String?     @db.String
+  isPremium     Boolean     @default(false)
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  @@index([podcastMetaId])
+  @@index([podcastMetaId, order])
+}
+
 model PodcastMeta {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   podcastId   Int      @unique
@@ -615,11 +642,12 @@ model PodcastMeta {
   slug        String   @unique
   jsonUrl     String
   coverUrl    String?
+   bannerUrl    String?
   level       String   @default("C1")
   isPublished Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
+  episodes    PodcastEpisode[]
   @@index([isPublished])
 }
 
@@ -2338,7 +2366,6 @@ model ExploreView {
   @@index([reelId])
   @@index([userId])
 }
-
 
 
 

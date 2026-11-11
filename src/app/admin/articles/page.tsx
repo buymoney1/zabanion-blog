@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Search, Eye, Edit, Trash2, Loader2, ExternalLink } from "lucide-react";
+import { Plus, Search, Eye, Edit, Trash2, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 interface Article {
   id: string;
@@ -21,11 +21,19 @@ export default function ArticlesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
+  const [sortBy, setSortBy] = useState<string>("createdAt"); // createdAt, views
+  const [sortOrder, setSortOrder] = useState<string>("desc"); // asc, desc
 
   const loadArticles = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), search, limit: "20" });
+      const params = new URLSearchParams({ 
+        page: String(page), 
+        search, 
+        limit: "20",
+        sortBy,
+        sortOrder
+      });
       const res = await fetch(`/api/admin/articles?${params}`);
       const data = await res.json();
       setArticles(data.articles);
@@ -37,7 +45,9 @@ export default function ArticlesPage() {
     }
   };
 
-  useEffect(() => { loadArticles(); }, [page, search]);
+  useEffect(() => { 
+    loadArticles(); 
+  }, [page, search, sortBy, sortOrder]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("آیا از حذف این مقاله اطمینان دارید؟")) return;
@@ -47,6 +57,25 @@ export default function ArticlesPage() {
     } catch (err) {
       alert("خطا در حذف");
     }
+  };
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      // اگر روی همان فیلد کلیک شد، جهت را تغییر بده
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      // اگر فیلد جدید انتخاب شد، پیش‌فرض descending
+      setSortBy(field);
+      setSortOrder("desc");
+    }
+    setPage(1); // برگشت به صفحه اول
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortBy !== field) return <ArrowUpDown className="w-3 h-3" />;
+    return sortOrder === "asc" ? 
+      <ArrowUp className="w-3 h-3" /> : 
+      <ArrowDown className="w-3 h-3" />;
   };
 
   return (
@@ -77,8 +106,24 @@ export default function ArticlesPage() {
               <tr className="bg-stone-50 border-b">
                 <th className="p-3 text-right text-xs font-bold text-stone-400">عنوان</th>
                 <th className="p-3 text-right text-xs font-bold text-stone-400">وضعیت</th>
-                <th className="p-3 text-right text-xs font-bold text-stone-400">بازدید</th>
-                <th className="p-3 text-right text-xs font-bold text-stone-400">تاریخ</th>
+                <th className="p-3 text-right text-xs font-bold text-stone-400">
+                  <button 
+                    onClick={() => handleSort("views")}
+                    className="flex items-center gap-1 hover:text-amber-600 transition-colors"
+                  >
+                    بازدید
+                    {getSortIcon("views")}
+                  </button>
+                </th>
+                <th className="p-3 text-right text-xs font-bold text-stone-400">
+                  <button 
+                    onClick={() => handleSort("createdAt")}
+                    className="flex items-center gap-1 hover:text-amber-600 transition-colors"
+                  >
+                    تاریخ
+                    {getSortIcon("createdAt")}
+                  </button>
+                </th>
                 <th className="p-3 text-right text-xs font-bold text-stone-400">عملیات</th>
               </tr>
             </thead>
@@ -98,8 +143,17 @@ export default function ArticlesPage() {
                       {article.isPublished ? "منتشر شده" : "پیش‌نویس"}
                     </span>
                   </td>
-                  <td className="p-3 text-sm text-stone-500">{article._count?.views || 0}</td>
-                  <td className="p-3 text-sm text-stone-400">{new Date(article.createdAt).toLocaleDateString("fa-IR")}</td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-1">
+                      <Eye className="w-3.5 h-3.5 text-stone-400" />
+                      <span className="text-sm font-medium text-stone-700">
+                        {article._count?.views?.toLocaleString("fa-IR") || 0}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="p-3 text-sm text-stone-400">
+                    {new Date(article.createdAt).toLocaleDateString("fa-IR")}
+                  </td>
                   <td className="p-3">
                     <div className="flex gap-1">
                       <Link href={`/admin/articles/${article.id}/edit`}
@@ -117,14 +171,22 @@ export default function ArticlesPage() {
             </tbody>
           </table>
 
+          {articles.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-stone-400 text-sm">مقاله‌ای یافت نشد</p>
+            </div>
+          )}
+
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between p-3 border-t">
-              <span className="text-xs text-stone-400">صفحه {page} از {pagination.totalPages}</span>
+              <span className="text-xs text-stone-400">
+                {pagination.total.toLocaleString("fa-IR")} مقاله - صفحه {page.toLocaleString("fa-IR")} از {pagination.totalPages.toLocaleString("fa-IR")}
+              </span>
               <div className="flex gap-1">
                 {Array.from({ length: pagination.totalPages }, (_, i) => (
                   <button key={i} onClick={() => setPage(i + 1)}
                     className={`w-8 h-8 rounded-lg text-xs font-medium ${page === i + 1 ? "bg-amber-500 text-white" : "border text-stone-500"}`}>
-                    {i + 1}
+                    {(i + 1).toLocaleString("fa-IR")}
                   </button>
                 ))}
               </div>

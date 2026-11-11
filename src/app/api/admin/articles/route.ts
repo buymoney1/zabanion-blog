@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status");
+    const sortBy = searchParams.get("sortBy") || "createdAt"; // createdAt, views
+    const sortOrder = searchParams.get("sortOrder") || "desc"; // asc, desc
 
     const where: any = {};
     if (search) {
@@ -38,6 +40,23 @@ export async function GET(req: NextRequest) {
     if (status === "published") where.isPublished = true;
     if (status === "draft") where.isPublished = false;
 
+    // تعیین فیلد مرتب‌سازی
+    let orderBy: any = {};
+    
+    if (sortBy === "views") {
+      // مرتب‌سازی بر اساس تعداد بازدید
+      orderBy = {
+        views: {
+          _count: sortOrder
+        }
+      };
+    } else {
+      // مرتب‌سازی پیش‌فرض بر اساس تاریخ
+      orderBy = {
+        createdAt: sortOrder
+      };
+    }
+
     const [articles, total] = await Promise.all([
       prisma.seoArticle.findMany({
         where,
@@ -46,7 +65,7 @@ export async function GET(req: NextRequest) {
           author: { select: { name: true, email: true } },
           _count: { select: { views: true } },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -60,6 +79,8 @@ export async function GET(req: NextRequest) {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+        sortBy,
+        sortOrder,
       },
     });
   } catch (error: any) {
